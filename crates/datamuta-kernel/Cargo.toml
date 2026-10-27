@@ -1,0 +1,25 @@
+[package]
+name = "datamuta-kernel"
+version = "0.1.0"
+description = "Bounded migration plans, capability admission, and receipt/checkpoint execution"
+edition = "2024"
+rust-version = "1.99"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[workspace]
+
+[dependencies]
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = { version = "=1.0.154", features = ["preserve_order"] }
+sha2 = "=0.11.1"
+
+[dev-dependencies]
+tokio = { version = "=1.54.1", features = ["rt", "macros"] }
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"

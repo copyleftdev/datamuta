@@ -1,0 +1,22 @@
+# Local execution and build products
+**/target/
+.local/
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.redb
+*.redb-lock
+snapshot*/
+logs/
+# Private development material is never part of this public repository.
+experiments/
+gym/
+results/
+output/
+vendor/
+tmp/
+.tools/
+.smesh-mcp/
+examples/postgres/work*/

@@ -1,0 +1,24 @@
+[package]
+name = "datamuta-postgres"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+license = "MIT OR Apache-2.0"
+publish = false
+description = "Bounded native PostgreSQL discovery and flat mapping adapter"
+[workspace]
+[dependencies]
+datamuta-kernel = { path = "../datamuta-kernel", version = "=0.1.0" }
+datamuta-plan = { path = "../datamuta-plan", version = "=0.1.0" }
+tokio = { version = "=1.54.1", features = ["rt", "net", "time"] }
+tokio-postgres = { version = "=0.7.18", default-features = false, features = ["runtime"] }
+serde = { version = "=1.0.229", features = ["derive"] }
+rustls = { version = "=0.23.46", default-features = false, features = ["std", "ring", "tls12"] }
+tokio-postgres-rustls = { version = "=0.14.0", default-features = false, features = ["ring"] }
+[dev-dependencies]
+serde_json = "=1.0.154"
+[lints.rust]
+unsafe_code = "forbid"
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"

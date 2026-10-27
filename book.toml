@@ -1,0 +1,16 @@
+[book]
+title = "Datamuta Operations"
+description = "Configure, run, recover and verify a Datamuta migration."
+language = "en"
+src = "docs/book"
+
+[build]
+build-dir = ".local/book"
+create-missing = false
+
+[output.html]
+preferred-dark-theme = "navy"
+no-section-label = true
+
+[output.html.playground]
+runnable = false

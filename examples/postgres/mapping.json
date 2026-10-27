@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "fields": [
+    {"source":"order_id","target":"order_key","operation":"widen_i32_to_i64"},
+    {"source":"cents","target":"value","operation":"copy"},
+    {"source":"note","target":"memo","operation":"copy"},
+    {"source":"active","target":"enabled","operation":"copy"}
+  ]
+}

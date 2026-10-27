@@ -1,0 +1,30 @@
+# Disposable loopback-only demonstration. Data is lost when these containers stop.
+services:
+  source:
+    image: postgres:17.6-bookworm@sha256:f3bd19c606e442c3d7bdfa8002e03fe260a1023351e0ea4598032022b68dd6e3
+    environment:
+      POSTGRES_USER: datamuta
+      POSTGRES_DB: datamuta
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports: ["127.0.0.1:55432:5432"]
+    tmpfs: ["/var/lib/postgresql/data:rw,size=268435456"]
+    volumes: ["./source.sql:/docker-entrypoint-initdb.d/001-source.sql:ro"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U datamuta -d datamuta"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  target:
+    image: postgres:17.6-bookworm@sha256:f3bd19c606e442c3d7bdfa8002e03fe260a1023351e0ea4598032022b68dd6e3
+    environment:
+      POSTGRES_USER: datamuta
+      POSTGRES_DB: datamuta
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports: ["127.0.0.1:55433:5432"]
+    tmpfs: ["/var/lib/postgresql/data:rw,size=268435456"]
+    volumes: ["./target.sql:/docker-entrypoint-initdb.d/001-target.sql:ro"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U datamuta -d datamuta"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
