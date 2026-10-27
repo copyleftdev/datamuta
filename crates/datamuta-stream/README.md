@@ -5,6 +5,9 @@ The CLI supports schema configuration, sealed capture, offline plan inspection,
 approved publication/resume, native status, receipt auditing and explicit
 PostgreSQL destination-value verification.
 
+The [capability guide](../../docs/book/capabilities.md) explains engine directions,
+data transformations, shared recovery behavior and adapter extension requirements.
+
 Start with the [PostgreSQL example](../../examples/postgres/README.md) and the
 [operations guide](../../docs/book/operations.md). Read the
 [recovery contract](../../docs/book/recovery.md) before retrying an uncertain attempt.

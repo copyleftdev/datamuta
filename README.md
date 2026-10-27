@@ -4,6 +4,25 @@ Datamuta is an experimental Rust database migration runtime. It captures a typed
 snapshot, applies an explicitly reviewed mapping, resumes from native commit
 receipts, and verifies destination values against the captured data.
 
+The runtime separates typed planning from native publication, so the same sealed
+snapshot workflow can serve relational and flat document targets. PostgreSQL is
+the complete documented path; MySQL, MongoDB and Firestore are implemented lab
+profiles. Firestore also has a source reader.
+
+| Capability | Available today |
+| --- | --- |
+| Capture sources | PostgreSQL; Firestore emulator in the lab profile. |
+| Publication targets | PostgreSQL; laboratory MySQL, MongoDB and Firestore adapters. |
+| Transformations | Complete field copies/renames, integer widening, explicit null and identity preservation. |
+| Recovery | Detached disk snapshots, exact-plan approval and native partition receipts/progress. |
+| Verification | Shared receipt audit; full destination-value comparison for PostgreSQL. |
+| Extension | Rust mapping libraries, generic kernel units/targets and compiled streaming adapters. |
+
+Read [Capabilities and extension points](docs/book/capabilities.md) for engine
+directions, actual data transformations, JEV selection boundaries and the work
+required to add an adapter. Bidirectional snapshot routes do not imply live
+synchronization; this release does not support arbitrary databases or schemas.
+
 Start with the [PostgreSQL example](examples/postgres/README.md), then read the
 [operations book](docs/book/operations.md) and [recovery runbook](docs/book/recovery.md).
 

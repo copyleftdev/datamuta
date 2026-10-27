@@ -5,9 +5,13 @@ MySQL, MongoDB and Firestore adapter modules are present in the source but remai
 laboratory profiles; their presence is not a production-support promise.
 `configure` and full destination `verify` currently cover PostgreSQL.
 
+See [Capabilities and extension points](capabilities.md) for source and target
+directions, the shared adapter contract and the distinction between library
+extension points and runnable CLI features.
+
 | Area | Current contract |
 | --- | --- |
-| Source capture | Nonempty flat snapshot; source writes blocked until capture finishes. |
+| Source capture | Nonempty flat snapshot. PostgreSQL blocks source writes until capture finishes; the Firestore lab reader pins a read time and requires structural changes to stay quiescent. |
 | Mappings | Complete field copies/renames and lossless integer-to-bigint widening. |
 | Source wire | Bounded pages and a server-side oversized-value guard. |
 | Encoded record | At most 65,536 bytes, excluding framing newline. |
