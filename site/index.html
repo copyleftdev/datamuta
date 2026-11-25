@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Datamuta — database migration with evidence</title>
+<meta name="description" content="Datamuta is an experimental Rust database migration runtime: sealed snapshots, hash-approved plans, atomic receipts and stored-value verification.">
+<meta name="theme-color" content="#F3F4F1">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 3 29 10.5 16 18 3 10.5Z' fill='%23FBFBF9' stroke='%231B1E21' stroke-width='1.6' stroke-linejoin='round'/%3E%3Cpath d='M3 15.5 16 23 29 15.5M3 20.5 16 28 29 20.5' fill='none' stroke='%231B1E21' stroke-width='1.6' stroke-linejoin='round'/%3E%3Cpath d='M11 9.6 16 12.5 21 9.6' fill='none' stroke='%232546C7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Schibsted+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js" } }
+</script>
+<script type="module" src="plate.js"></script>
+</head>
+<body>
+<a class="skip" href="#example">Skip to the example</a>
+
+<header class="bar">
+  <a class="mark" href="#top" aria-label="Datamuta home">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3 29 10.5 16 18 3 10.5Z" class="mk-top"/><path d="M3 15.5 16 23 29 15.5M3 20.5 16 28 29 20.5" class="mk-ln"/><path d="M11 9.6 16 12.5 21 9.6" class="mk-ac"/></svg>
+    <span>datamuta</span>
+  </a>
+  <nav aria-label="Sections">
+    <a href="#pipeline">Pipeline</a>
+    <a href="#example">Example</a>
+    <a href="#engines">Engines</a>
+    <a href="#limits">Limits</a>
+    <a class="gh" href="https://github.com/copyleftdev/datamuta">GitHub</a>
+  </nav>
+</header>
+
+<main id="top">
+  <section class="stage" id="pipeline" aria-label="How a Datamuta migration runs">
+    <div class="sticky">
+      <canvas id="plate" aria-hidden="true"></canvas>
+      <div class="labels" id="labels" aria-hidden="true"></div>
+
+      <div class="hero" id="hero">
+        <h1>Database migration that proves what it&nbsp;did.</h1>
+        <p class="lede">Datamuta is an experimental Rust runtime. It seals a source snapshot to disk, publishes only the plan you approved by hash, commits a receipt with every partition, and checks the values that&nbsp;landed.</p>
+        <p class="notice">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5 18 16.5H2Z"/><path d="M10 8v4"/><circle cx="10" cy="14.2" r=".6"/></svg>
+          <span><strong>Experimental.</strong> Not for production data. PostgreSQL&nbsp;→&nbsp;PostgreSQL is the documented path.</span>
+        </p>
+        <div class="actions">
+          <a class="btn primary" href="#example">Run the three-row example</a>
+          <a class="btn" href="https://github.com/copyleftdev/datamuta">Source on GitHub</a>
+        </div>
+      </div>
+
+      <div class="story" id="story">
+        <ol class="rail" id="rail" aria-label="Pipeline stages">
+          <li><button type="button" data-step="0">Capture</button></li>
+          <li><button type="button" data-step="1">Map</button></li>
+          <li><button type="button" data-step="2">Seal</button></li>
+          <li><button type="button" data-step="3">Approve</button></li>
+          <li><button type="button" data-step="4">Publish</button></li>
+          <li><button type="button" data-step="5">Verify</button></li>
+        </ol>
+        <div class="steps" id="steps">
+          <article class="step">
+            <h2>Capture a snapshot, then let the source go.</h2>
+            <p>Datamuta reads a flat, typed snapshot in bounded pages. PostgreSQL capture blocks source writes until it finishes. After that, publication needs only the sealed spool and the destination; the source can be offline.</p>
+            <code>datamuta-stream capture --config config.json --spool snapshot --plan plan.json</code>
+          </article>
+          <article class="step">
+            <h2>Every field is assigned exactly once.</h2>
+            <p>The mapping is explicit: copies, renames and lossless <code class="i">i32 → i64</code> widening. Unsupported conversions, nullable-to-required mappings and reordered identities are refused before any data moves.</p>
+            <code>mapping.json · version 1 · 4 fields</code>
+          </article>
+          <article class="step">
+            <h2>Data is sealed into partitions on disk.</h2>
+            <p>Records are encoded into partitions of at most 256 rows and 1&nbsp;MiB, bound by partition hashes and Merkle proofs. The spool has a hard budget: 256&nbsp;MiB by default, 4&nbsp;GiB at most.</p>
+            <code>snapshot/ · sealed manifest · partition hashes</code>
+          </article>
+          <article class="step">
+            <h2>Inspection grants nothing. The hash does.</h2>
+            <p>Engines, endpoints, schemas, mapping, the implementation fingerprint and the snapshot are bound into one plan. <code class="i">run</code> refuses to start without the exact hash you reviewed.</p>
+            <code>datamuta-stream run --plan plan.json --spool snapshot --approved-plan-sha256 HASH</code>
+          </article>
+          <article class="step">
+            <h2>Each partition commits with its own receipt.</h2>
+            <p>A partition's records, receipt and cursor commit atomically in the destination. Resume reads that native evidence, and a timeout is never taken as proof of rollback.</p>
+            <code>datamuta-stream status --plan plan.json --spool snapshot</code>
+          </article>
+          <article class="step">
+            <h2>Progress is not correctness. Values are.</h2>
+            <p>Verification reads what is stored in the destination and compares it with the transformed, authenticated spool. A clean exit or an intact receipt chain does not replace it.</p>
+            <code>datamuta-stream verify --plan plan.json --spool snapshot --out verification.json</code>
+          </article>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="example">
+    <div class="wrap two">
+      <div class="copy">
+        <h2>Three rows, start to finish.</h2>
+        <p>Two disposable PostgreSQL&nbsp;17 containers on loopback ports 55432 and 55433, invented data, and the commands from the pipeline above. You need Docker Compose and Rust&nbsp;1.99 or newer.</p>
+        <p>Replace <code class="i">HASH</code> with the <code class="i">plan_sha256</code> that <code class="i">inspect</code> prints, after you have read the plan.</p>
+        <a class="link" href="https://github.com/copyleftdev/datamuta/tree/main/examples/postgres">Full walkthrough in examples/postgres</a>
+      </div>
+      <figure class="term">
+        <figcaption><span>examples/postgres</span><button type="button" class="copy-btn" data-copy="cmds">Copy</button></figcaption>
+<pre id="cmds"><span class="c"># two loopback databases, three synthetic rows</span>
+docker compose --project-name datamuta-example up --detach --wait
+umask 077 &amp;&amp; mkdir work &amp;&amp; cd work
+
+datamuta-stream configure \
+  --source-endpoint ../source-endpoint.json --source-table orders \
+  --target-endpoint ../target-endpoint.json --target-table purchases \
+  --mapping ../mapping.json --out config.json
+datamuta-stream capture --config config.json --spool snapshot --plan plan.json
+datamuta-stream inspect --plan plan.json --spool snapshot
+
+<span class="c"># publish only the plan you reviewed</span>
+datamuta-stream run --plan plan.json --spool snapshot --approved-plan-sha256 HASH
+datamuta-stream status --plan plan.json --spool snapshot
+datamuta-stream verify --plan plan.json --spool snapshot --out verification.json</pre>
+        <div class="expect" aria-label="Expected verification report">
+          <span class="k">verification.json</span>
+          <span><b>status</b> "verified"</span>
+          <span><b>rows_verified</b> 3</span>
+          <span><b>fields_verified</b> 12</span>
+        </div>
+      </figure>
+    </div>
+  </section>
+
+  <section class="sec tint" id="mapping">
+    <div class="wrap">
+      <div class="copy narrow">
+        <h2>Meaning is mapped, not inferred.</h2>
+        <p>The example moves <code class="i">dm_source.orders</code> into <code class="i">dm_target.purchases</code>. The identity widens from <code class="i">integer</code> to <code class="i">bigint</code>, and every value arrives as it left. All rows are synthetic.</p>
+      </div>
+      <div class="map" role="table" aria-label="Field mapping from orders to purchases">
+        <div class="map-row head" role="row"><span role="columnheader">orders</span><span role="columnheader">operation</span><span role="columnheader">purchases</span></div>
+        <div class="map-row" role="row"><span role="cell"><b>order_id</b> integer · key</span><span role="cell" class="op widen"><i>widen_i32_to_i64</i></span><span role="cell"><b>order_key</b> bigint · key</span></div>
+        <div class="map-row" role="row"><span role="cell"><b>cents</b> bigint</span><span role="cell" class="op"><i>copy</i></span><span role="cell"><b>value</b> bigint</span></div>
+        <div class="map-row" role="row"><span role="cell"><b>note</b> text · nullable</span><span role="cell" class="op"><i>copy</i></span><span role="cell"><b>memo</b> text · nullable</span></div>
+        <div class="map-row" role="row"><span role="cell"><b>active</b> boolean</span><span role="cell" class="op"><i>copy</i></span><span role="cell"><b>enabled</b> boolean</span></div>
+      </div>
+      <div class="rows">
+        <table>
+          <caption>dm_target.purchases after verify</caption>
+          <thead><tr><th scope="col">order_key</th><th scope="col">value</th><th scope="col">memo</th><th scope="col">enabled</th></tr></thead>
+          <tbody class="reveal">
+            <tr><td>1</td><td>12500</td><td>Synthetic example order</td><td>true</td></tr>
+            <tr><td>2</td><td>-750</td><td><span class="null">NULL</span></td><td>false</td></tr>
+            <tr><td>3</td><td>0</td><td>Unicode example: 雪🦀</td><td>true</td></tr>
+          </tbody>
+        </table>
+        <ul class="notes reveal">
+          <li><b>NULL</b> stays null; it never becomes an empty string.</li>
+          <li><b>-750</b> and <b>0</b> keep their sign and precision.</li>
+          <li><b>雪🦀</b> arrives as the same UTF-8.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="engines">
+    <div class="wrap">
+      <div class="copy narrow">
+        <h2>Where it runs today.</h2>
+        <p>Adapter code exists for four engines. Only PostgreSQL has a complete documented example; the others are laboratory profiles, and their presence is not a support promise.</p>
+      </div>
+      <table class="engines">
+        <thead><tr><th scope="col">Engine</th><th scope="col">Capture</th><th scope="col">Publish</th><th scope="col">Readiness</th></tr></thead>
+        <tbody class="reveal">
+          <tr class="lead"><th scope="row">PostgreSQL</th><td><svg class="yes" viewBox="0 0 16 16" role="img" aria-label="Yes"><path d="M3 8.5 6.5 12 13 4.5"/></svg></td><td><svg class="yes" viewBox="0 0 16 16" role="img" aria-label="Yes"><path d="M3 8.5 6.5 12 13 4.5"/></svg></td><td>Complete documented example on a restricted PostgreSQL 17 profile. Still experimental.</td></tr>
+          <tr><th scope="row">MySQL</th><td><svg class="no" viewBox="0 0 16 16" role="img" aria-label="No"><path d="M4 8h8"/></svg></td><td><svg class="yes" viewBox="0 0 16 16" role="img" aria-label="Yes"><path d="M3 8.5 6.5 12 13 4.5"/></svg></td><td>Laboratory loopback profile, restricted InnoDB tables.</td></tr>
+          <tr><th scope="row">MongoDB</th><td><svg class="no" viewBox="0 0 16 16" role="img" aria-label="No"><path d="M4 8h8"/></svg></td><td><svg class="yes" viewBox="0 0 16 16" role="img" aria-label="Yes"><path d="M3 8.5 6.5 12 13 4.5"/></svg></td><td>Laboratory loopback replica set, restricted flat documents.</td></tr>
+          <tr><th scope="row">Firestore</th><td><svg class="yes" viewBox="0 0 16 16" role="img" aria-label="Yes"><path d="M3 8.5 6.5 12 13 4.5"/></svg></td><td><svg class="yes" viewBox="0 0 16 16" role="img" aria-label="Yes"><path d="M3 8.5 6.5 12 13 4.5"/></svg></td><td>Local emulator only, prescribed flat collection and identity format.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="sec tint" id="limits">
+    <div class="wrap two">
+      <div class="copy">
+        <h2>Bounds you can read before you run.</h2>
+        <p>These are admission limits enforced by the runtime, not throughput promises or disk reservations.</p>
+        <a class="link" href="https://github.com/copyleftdev/datamuta/blob/main/docs/book/limits.md">Full limits in the operations book</a>
+      </div>
+      <dl class="spec reveal">
+        <div><dt>Encoded record</dt><dd>≤ 65,536 bytes</dd></div>
+        <div><dt>Partition</dt><dd>≤ 256 rows · ≤ 1 MiB</dd></div>
+        <div><dt>Partitions per job</dt><dd>≤ 65,536</dd></div>
+        <div><dt>Spool</dt><dd>8 KiB – 4 GiB · default 256 MiB</dd></div>
+        <div><dt>Command deadline</dt><dd>300 s</dd></div>
+        <div><dt>Types</dt><dd>bool · i32 · i64 · UTF-8 · null</dd></div>
+      </dl>
+    </div>
+    <div class="wrap">
+      <h3 class="out-h">Not in this release</h3>
+      <ul class="out reveal">
+        <li>Change data capture</li>
+        <li>Cutover and rollback</li>
+        <li>Decimals, timestamps, arrays, binary</li>
+        <li>Nested transformations and joins</li>
+        <li>Upserts into existing data</li>
+        <li>Petabyte-scale execution</li>
+        <li>Hosted service</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="close">
+    <div class="wrap">
+      <h2>Read the plan. Approve the hash. Check&nbsp;the&nbsp;values.</h2>
+      <figure class="term one">
+        <pre id="clone">git clone https://github.com/copyleftdev/datamuta
+cd datamuta/examples/postgres</pre>
+        <button type="button" class="copy-btn" data-copy="clone">Copy</button>
+      </figure>
+      <ul class="links">
+        <li><a href="https://github.com/copyleftdev/datamuta#readme">README and source map</a></li>
+        <li><a href="https://github.com/copyleftdev/datamuta/tree/main/docs/book">Operations book</a></li>
+        <li><a href="https://github.com/copyleftdev/datamuta/blob/main/SECURITY.md">Security policy</a></li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <span>Datamuta 0.1.0 · MIT OR Apache-2.0</span>
+    <span>Experimental and unaudited. No support commitment.</span>
+  </div>
+</footer>
+</body>
+</html>

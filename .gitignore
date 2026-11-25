@@ -20,3 +20,6 @@ tmp/
 .tools/
 .smesh-mcp/
 examples/postgres/work*/
+.playwright-mcp/
+.impeccable/review/
+.fastembed_cache/
