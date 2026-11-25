@@ -193,6 +193,8 @@ pub fn implementation() -> Fingerprint {
     Fingerprint::of(
         concat!(
             include_str!("lib.rs"),
+            include_str!("main.rs"),
+            include_str!("operator.rs"),
             include_str!("spool.rs"),
             include_str!("postgres.rs"),
             include_str!("publisher.rs"),
@@ -206,9 +208,13 @@ pub fn implementation() -> Fingerprint {
             include_str!("../../datamuta-postgres/src/admission.rs"),
             include_str!("../../datamuta-postgres/Cargo.toml"),
             include_str!("../../datamuta-postgres/Cargo.lock"),
+            include_str!("../../datamuta-plan/src/lib.rs"),
             include_str!("../../datamuta-plan/src/mapping.rs"),
             include_str!("../../datamuta-plan/src/schema.rs"),
-            include_str!("../../datamuta-kernel/src/lib.rs")
+            include_str!("../../datamuta-plan/src/selection.rs"),
+            include_str!("../../datamuta-kernel/src/lib.rs"),
+            include_str!("../../datamuta-kernel/src/plan.rs"),
+            include_str!("../../datamuta-kernel/src/execute.rs")
         )
         .as_bytes(),
     )

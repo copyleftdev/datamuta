@@ -162,13 +162,15 @@ For Rust changes, select the affected crates and their dependents. This loop
 checks all four independent workspaces without requiring live databases:
 
 ```sh
-set -e
-for crate in kernel plan postgres stream; do
-  manifest="crates/datamuta-$crate/Cargo.toml"
-  cargo fmt --manifest-path "$manifest" -- --check
-  cargo test --locked --manifest-path "$manifest"
-  cargo clippy --locked --manifest-path "$manifest" --all-targets -- -D warnings
-done
+(
+  set -e
+  for crate in kernel plan postgres stream; do
+    manifest="crates/datamuta-$crate/Cargo.toml"
+    cargo fmt --manifest-path "$manifest" -- --check
+    cargo test --locked --manifest-path "$manifest"
+    cargo clippy --locked --manifest-path "$manifest" --all-targets -- -D warnings
+  done
+)
 ```
 
 Unit/conformance tests are not native database qualification. For the runnable
