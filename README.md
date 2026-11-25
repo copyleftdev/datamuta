@@ -4,6 +4,7 @@
 [![not production ready](https://img.shields.io/badge/production-not%20ready-red)](SECURITY.md)
 [![CI](https://github.com/copyleftdev/datamuta/actions/workflows/ci.yml/badge.svg)](https://github.com/copyleftdev/datamuta/actions/workflows/ci.yml)
 [![license: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue)](#license)
+[![website](https://img.shields.io/badge/website-copyleftdev.github.io%2Fdatamuta-2546C7)](https://copyleftdev.github.io/datamuta/)
 [![rust 1.99+](https://img.shields.io/badge/rust-1.99%2B-informational)](#build-test-and-run)
 
 > [!WARNING]
