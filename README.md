@@ -1,5 +1,16 @@
 # Datamuta
 
+[![status: experimental](https://img.shields.io/badge/status-experimental-orange)](docs/book/limits.md)
+[![not production ready](https://img.shields.io/badge/production-not%20ready-red)](SECURITY.md)
+[![CI](https://github.com/copyleftdev/datamuta/actions/workflows/ci.yml/badge.svg)](https://github.com/copyleftdev/datamuta/actions/workflows/ci.yml)
+[![license: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue)](#license)
+[![rust 1.99+](https://img.shields.io/badge/rust-1.99%2B-informational)](#build-test-and-run)
+
+> [!WARNING]
+> Datamuta is experimental and unaudited. Do not point it at production data.
+> Use disposable or fully backed-up databases, and read [limits](docs/book/limits.md)
+> and the [security policy](SECURITY.md) first.
+
 Datamuta is an **experimental Rust database migration runtime**. It captures a
 typed snapshot, validates an explicit transformation, seals data into bounded
 disk partitions, publishes an exactly approved plan, resumes from native commit
@@ -235,3 +246,11 @@ scans. Retain the matching binary, configuration, approved plan, sealed spool an
 verification evidence through the job's recovery/retention period. The operator
 owns application acceptance, cutover and retirement; the CLI does not automate
 those decisions.
+
+## License
+
+Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or
+[MIT license](LICENSE-MIT) at your option. Unless you explicitly state
+otherwise, any contribution intentionally submitted for inclusion in this
+work, as defined in the Apache-2.0 license, shall be dual licensed as above,
+without any additional terms or conditions.
