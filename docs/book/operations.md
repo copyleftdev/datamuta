@@ -124,3 +124,37 @@ No command automatically performs application cutover or retires the source.
 Do not delete completed partition files while recovery or verification is needed.
 Do not reset native metadata to reuse a domain. There is no automatic spool
 retirement policy. Redact credentials and source data before sharing diagnostics.
+
+## Suggesting a mapping (optional)
+
+When two PostgreSQL relations admit more than one structurally valid mapping, for
+example two `bigint` amounts, `suggest-mapping` can draft one through a saved JEV
+exchange. Write a short meaning for every source and target field in an evidence
+file; field names alone are not evidence.
+
+```json
+{"source_meanings": {"order_id": "Order identifier", "cents": "Grand total in US cents", "tax_cents": "Sales tax in US cents"},
+ "target_meanings": {"order_key": "Order identifier", "tax": "Sales tax in US cents", "total": "Grand total in US cents"},
+ "context": "Billing migration"}
+```
+
+```sh
+datamuta-stream suggest-mapping prepare \
+  --source-endpoint src.json --source-table billing \
+  --target-endpoint tgt.json --target-table invoices \
+  --evidence evidence.json --request-out request.json --mapping-out mapping.json
+# send request.json to JEV unchanged and save the reply as response.json
+datamuta-stream suggest-mapping admit \
+  --source-endpoint src.json --source-table billing \
+  --target-endpoint tgt.json --target-table invoices \
+  --evidence evidence.json --request request.json --response response.json \
+  --mapping-out mapping.json --provenance-out mapping.provenance.json
+```
+
+If only one mapping is valid, `prepare` writes it to `--mapping-out` and no request
+is needed. `admit` refuses a request whose schemas or evidence have changed, a
+response from another model, malformed or oversized responses, and existing output
+paths. A low-confidence or abstaining reply exits with status 3, writes no mapping
+and prints the candidates. An accepted mapping is a draft: review it, then continue
+with `configure`, `capture`, `inspect` and exact-hash approval as usual.
+

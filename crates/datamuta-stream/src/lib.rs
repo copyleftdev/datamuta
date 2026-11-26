@@ -7,6 +7,7 @@ pub mod mysql;
 pub mod postgres;
 pub mod publisher;
 pub mod spool;
+pub mod suggest;
 use datamuta_kernel::{Fingerprint, canonical_hash};
 use datamuta_plan::{Candidate, CompiledMapping, Schema};
 use datamuta_postgres::Endpoint;
@@ -196,6 +197,7 @@ pub fn implementation() -> Fingerprint {
             include_str!("main.rs"),
             include_str!("operator.rs"),
             include_str!("spool.rs"),
+            include_str!("suggest.rs"),
             include_str!("postgres.rs"),
             include_str!("publisher.rs"),
             include_str!("mysql.rs"),

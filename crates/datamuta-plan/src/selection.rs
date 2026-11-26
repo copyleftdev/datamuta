@@ -149,6 +149,9 @@ pub struct ChoiceAnswer {
 pub struct Usage {
     pub input_tokens: u64,
     pub output_tokens: u64,
+    /// Reported by some gateways (OpenRouter); recorded, never used for admission.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cost: Option<f64>,
 }
 impl SelectionRequest {
     pub fn new(choices: ChoiceSet, evidence: Evidence) -> Result<Self> {

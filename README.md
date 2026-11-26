@@ -120,6 +120,7 @@ line numbers; read the owning implementation and its tests before editing.
 | Schema configuration, offline inspection, full value verification | [stream/operator.rs](crates/datamuta-stream/src/operator.rs): `configure`, `inspect`, `verify` | [PostgreSQL example](examples/postgres/README.md) |
 | Engine types, configuration, plan approval, implementation identity | [stream/lib.rs](crates/datamuta-stream/src/lib.rs): `Config`, `Plan`, `SourceEngine`, `TargetEngine`, `implementation`, `capture` | [endpoint/approval tests](crates/datamuta-stream/tests/endpoints.rs) |
 | Disk spool, sealing, budgets, authenticated random access | [stream/spool.rs](crates/datamuta-stream/src/spool.rs): `Limits`, `Manifest`, `Builder`, `Reader` | [corruption, bounds and restart tests](crates/datamuta-stream/tests/spool.rs) |
+| Offline JEV mapping suggestion (`suggest-mapping prepare`/`admit`) | [stream/suggest.rs](crates/datamuta-stream/src/suggest.rs): `prepare`, `admit`, `Provenance`; CLI wiring in `operator.rs` | [suggestion tests](crates/datamuta-stream/tests/suggest.rs) |
 | Shared streaming publication, progress, resume, receipt audit | [stream/publisher.rs](crates/datamuta-stream/src/publisher.rs): `Destination`, `run`, `status`, `audit`, `check_cursor` | [recovery contract](docs/book/recovery.md); native example for database effects |
 | Native streaming adapters | [postgres.rs](crates/datamuta-stream/src/postgres.rs), [mysql.rs](crates/datamuta-stream/src/mysql.rs), [mongo.rs](crates/datamuta-stream/src/mongo.rs), [firestore.rs](crates/datamuta-stream/src/firestore.rs): per-engine `Destination`; source adapters also implement `capture` | [adapter qualification](docs/book/capabilities.md#adding-an-engine) |
 | PostgreSQL connections, discovery and generic adapter | [postgres/connection.rs](crates/datamuta-postgres/src/connection.rs): `Endpoint`, `Verified`, `connect`; [postgres/lib.rs](crates/datamuta-postgres/src/lib.rs): `describe`, `Destination`; [admission.rs](crates/datamuta-postgres/src/admission.rs) | [connection policy](docs/book/connections.md) |
@@ -145,11 +146,18 @@ the generic executor as its partition loop.
 
 ### JEV's current role
 
-`datamuta-plan` can enumerate a bounded complete set of structurally valid
-mappings, construct a JEV selection request and admit a supplied response or
-require review. It does not call the provider. The CLI accepts an explicit
-mapping; it does not perform autonomous semantic discovery. Hosted selection and
-agent orchestration cannot be inferred from the presence of these library types.
+`datamuta-plan` enumerates a bounded complete set of structurally valid
+mappings, constructs a JEV selection request and admits a supplied response or
+requires review. `datamuta-stream suggest-mapping` exposes this as two offline
+steps: `prepare` writes the exact request bytes (or the only structural
+candidate, when there is nothing to choose), and `admit` rebuilds the request
+from the live schemas and human-written field meanings, refuses any drift, and
+writes a draft `mapping.json` plus provenance only when the frozen policy
+accepts (probability ≥ 0.90, margin ≥ 0.20). Otherwise it exits 3 and lists the
+candidates for a person to choose. Datamuta never contacts the provider; you send
+the request yourself. A suggested mapping grants no authority: it still goes
+through `configure`, `inspect` and exact plan-hash approval. Hosted selection and
+autonomous semantic discovery are not provided.
 
 ## Build, test and run
 

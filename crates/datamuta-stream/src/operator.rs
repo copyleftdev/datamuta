@@ -1,7 +1,7 @@
 //! Operator inspection and point-in-time destination verification.
-use datamuta_plan::{DataType, Record, Scalar};
+use datamuta_plan::{DataType, Evidence, Record, Scalar, Schema};
 use datamuta_postgres as pg;
-use datamuta_stream::{self as stream, Plan, Result, TargetEngine, publisher, spool};
+use datamuta_stream::{self as stream, Plan, Result, TargetEngine, publisher, spool, suggest};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::path::Path;
@@ -21,14 +21,12 @@ pub async fn configure(
     mapping: &Path,
     spill_bytes: u64,
 ) -> Result<stream::Config> {
-    let source_endpoint: pg::Endpoint = stream::load(source_endpoint)?;
-    let target_endpoint: pg::Endpoint = stream::load(target_endpoint)?;
-    let source = pg::connect(&source_endpoint).await?;
-    let target = pg::connect(&target_endpoint).await?;
+    let (source_endpoint, target_endpoint, source, target) =
+        describe_pair(source_endpoint, target_endpoint, source_table, target_table).await?;
     let config = stream::Config {
         version: 2,
-        source: pg::describe(&source, &source_endpoint.namespace, source_table).await?,
-        target: pg::describe(&target, &target_endpoint.namespace, target_table).await?,
+        source,
+        target,
         source_endpoint,
         target_endpoint,
         source_engine: Default::default(),
@@ -41,6 +39,88 @@ pub async fn configure(
     };
     config.compile()?;
     Ok(config)
+}
+/// Discover both PostgreSQL relations; shared by `configure` and `suggest-mapping`.
+pub async fn describe_pair(
+    source_endpoint: &Path,
+    target_endpoint: &Path,
+    source_table: &str,
+    target_table: &str,
+) -> Result<(pg::Endpoint, pg::Endpoint, Schema, Schema)> {
+    let source_endpoint: pg::Endpoint = stream::load(source_endpoint)?;
+    let target_endpoint: pg::Endpoint = stream::load(target_endpoint)?;
+    let source = pg::connect(&source_endpoint).await?;
+    let target = pg::connect(&target_endpoint).await?;
+    let s = pg::describe(&source, &source_endpoint.namespace, source_table).await?;
+    let t = pg::describe(&target, &target_endpoint.namespace, target_table).await?;
+    Ok((source_endpoint, target_endpoint, s, t))
+}
+/// Prepare a JEV mapping request, or the single structural candidate when no choice exists.
+pub async fn suggest_prepare(
+    endpoints: (&Path, &Path),
+    tables: (&str, &str),
+    evidence: &Path,
+    request_out: &Path,
+    mapping_out: &Path,
+) -> Result<Value> {
+    let (_, _, source, target) =
+        describe_pair(endpoints.0, endpoints.1, tables.0, tables.1).await?;
+    let evidence: Evidence = stream::load(evidence)?;
+    let prepared = suggest::prepare(&source, &target, &evidence)?;
+    let mut out = serde_json::to_value(&prepared)?;
+    match &prepared {
+        suggest::Prepared::UniqueCandidate { mapping } => {
+            stream::save(mapping_out, mapping)?;
+            out["mapping_file"] = json!(mapping_out);
+            out["note"] = json!("only structural option; review field meanings before configure");
+        }
+        suggest::Prepared::RequestPrepared { payload, .. } => {
+            suggest::save_bytes(request_out, payload)?;
+            out["request_file"] = json!(request_out);
+            out["note"] =
+                json!("send the request file to JEV unchanged, then run suggest-mapping admit");
+        }
+    }
+    out["authorization"] = json!("not granted");
+    Ok(out)
+}
+/// Admit a saved JEV response; writes a draft mapping only when the frozen policy accepts.
+pub async fn suggest_admit(
+    endpoints: (&Path, &Path),
+    tables: (&str, &str),
+    evidence: &Path,
+    request: &Path,
+    response: &Path,
+    mapping_out: &Path,
+    provenance_out: &Path,
+) -> Result<Value> {
+    for p in [mapping_out, provenance_out] {
+        check(
+            p.symlink_metadata().is_err(),
+            "suggestion output already exists",
+        )?;
+    }
+    let (_, _, source, target) =
+        describe_pair(endpoints.0, endpoints.1, tables.0, tables.1).await?;
+    let evidence: Evidence = stream::load(evidence)?;
+    let request = suggest::read_bounded(request, suggest::MAX_REQUEST_BYTES)?;
+    let response = suggest::read_bounded(response, suggest::MAX_RESPONSE_BYTES)?;
+    let admitted = suggest::admit(&source, &target, &evidence, &request, &response)?;
+    let mut out = serde_json::to_value(&admitted)?;
+    if let suggest::Admitted::Accepted {
+        mapping,
+        provenance,
+        ..
+    } = &admitted
+    {
+        stream::save(mapping_out, mapping)?;
+        stream::save(provenance_out, provenance)?;
+        out["mapping_file"] = json!(mapping_out);
+        out["provenance_file"] = json!(provenance_out);
+        out["note"] = json!("draft only; run configure, inspect, then approve the exact plan hash");
+    }
+    out["authorization"] = json!("not granted");
+    Ok(out)
 }
 pub fn inspect(plan: &Plan, path: &Path) -> Result<Value> {
     plan.validate()?;

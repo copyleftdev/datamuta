@@ -94,7 +94,7 @@ A descriptor or a successful API call alone does not prove those semantics.
 
 | Component | Reusable capability | Boundary |
 | --- | --- | --- |
-| `datamuta-plan` | Typed schema validation, deterministic mapping compilation, bounded candidate enumeration and JEV choice-response admission. | The CLI uses explicit mappings. The library does not call JEV or provide a hosted planner. |
+| `datamuta-plan` | Typed schema validation, deterministic mapping compilation, bounded candidate enumeration and JEV choice-response admission. | The library does not call JEV or provide a hosted planner. `suggest-mapping` uses it offline to draft a mapping for review. |
 | `datamuta-kernel` | Custom `MigrationUnit` types, target capability descriptors, plan-bound receipts and checkpointed execution through `Target<U>`. | This executor validates a bounded materialized snapshot; it is not the disk-streaming executor. |
 | `datamuta-postgres` | Native schema discovery, connection policy and PostgreSQL admission checks. | Admits a deliberately restricted schema and server profile. |
 | `datamuta-stream` | Disk capture, sealed partition metadata, exact-plan approval, publication/resume and adapter dispatch. | Currently a single-job partition protocol, not a distributed scheduler. |

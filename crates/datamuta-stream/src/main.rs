@@ -32,6 +32,11 @@ enum Command {
         #[arg(long)]
         out: PathBuf,
     },
+    /// Suggest a draft mapping through a saved JEV exchange; grants no authorization.
+    SuggestMapping {
+        #[command(subcommand)]
+        step: Suggest,
+    },
     /// Inspect the plan and sealed manifest offline; grants no authorization.
     Inspect {
         #[arg(long)]
@@ -88,6 +93,45 @@ enum Command {
         spool: PathBuf,
     },
 }
+#[derive(clap::Args)]
+struct Relations {
+    #[arg(long)]
+    source_endpoint: PathBuf,
+    #[arg(long)]
+    target_endpoint: PathBuf,
+    #[arg(long)]
+    source_table: String,
+    #[arg(long)]
+    target_table: String,
+    /// Human-written meaning for every source and target field.
+    #[arg(long)]
+    evidence: PathBuf,
+}
+#[derive(Subcommand)]
+enum Suggest {
+    /// Enumerate valid mappings; write a JEV request, or the only candidate.
+    Prepare {
+        #[command(flatten)]
+        relations: Relations,
+        #[arg(long)]
+        request_out: PathBuf,
+        #[arg(long)]
+        mapping_out: PathBuf,
+    },
+    /// Admit a saved JEV response into a draft mapping, or require review (exit 3).
+    Admit {
+        #[command(flatten)]
+        relations: Relations,
+        #[arg(long)]
+        request: PathBuf,
+        #[arg(long)]
+        response: PathBuf,
+        #[arg(long)]
+        mapping_out: PathBuf,
+        #[arg(long)]
+        provenance_out: PathBuf,
+    },
+}
 #[derive(Clone, Copy, ValueEnum)]
 enum Fault {
     BeforeCommit,
@@ -128,6 +172,40 @@ async fn execute(command: Command) -> Result<serde_json::Value> {
             stream::save(&out, &config)?;
             serde_json::json!({"status":"configured","config":out,"authorization":"not granted"})
         }
+        Command::SuggestMapping { step } => match step {
+            Suggest::Prepare {
+                relations: r,
+                request_out,
+                mapping_out,
+            } => {
+                operator::suggest_prepare(
+                    (&r.source_endpoint, &r.target_endpoint),
+                    (&r.source_table, &r.target_table),
+                    &r.evidence,
+                    &request_out,
+                    &mapping_out,
+                )
+                .await?
+            }
+            Suggest::Admit {
+                relations: r,
+                request,
+                response,
+                mapping_out,
+                provenance_out,
+            } => {
+                operator::suggest_admit(
+                    (&r.source_endpoint, &r.target_endpoint),
+                    (&r.source_table, &r.target_table),
+                    &r.evidence,
+                    &request,
+                    &response,
+                    &mapping_out,
+                    &provenance_out,
+                )
+                .await?
+            }
+        },
         Command::Inspect { plan, spool } => operator::inspect(&stream::load(&plan)?, &spool)?,
         Command::Verify { plan, spool, out } => {
             if out.as_ref().is_some_and(|p| p.symlink_metadata().is_ok()) {
@@ -195,7 +273,12 @@ async fn execute(command: Command) -> Result<serde_json::Value> {
 async fn main() {
     let command = Cli::parse().command;
     match tokio::time::timeout(std::time::Duration::from_secs(300), execute(command)).await {
-        Ok(Ok(value)) => println!("{value}"),
+        Ok(Ok(value)) => {
+            println!("{value}");
+            if value["status"] == "review_required" {
+                std::process::exit(3);
+            }
+        }
         Ok(Err(e)) => {
             eprintln!("datamuta-stream: {e}");
             std::process::exit(1);

@@ -65,6 +65,7 @@ fn response(choice: &str, probs: [f64; 3]) -> Response {
         usage: Usage {
             input_tokens: 300,
             output_tokens: 30,
+            cost: None,
         },
     }
 }
@@ -180,5 +181,25 @@ fn response_wire_shape_rejects_injected_fields()
     let mut v = serde_json::to_value(response("option_1", [0.98, 0.01, 0.01]))?;
     v["answers"]["pick"]["sql"] = serde_json::json!("DROP TABLE destination");
     assert!(serde_json::from_value::<Response>(v).is_err());
+    Ok(())
+}
+
+#[test]
+fn gateway_cost_is_accepted_but_other_unknown_fields_are_not() -> Result<()> {
+    let base = serde_json::json!({
+        "model": MODEL,
+        "answers": {"pick": {"type": "choice", "choice": "option_1", "confidence": 0.95,
+            "probabilities": {"option_1": 0.95, "option_2": 0.03, "review": 0.02}}},
+        "usage": {"input_tokens": 300, "output_tokens": 30, "cost": 0.0000126}
+    });
+    let r: Response = serde_json::from_value(base.clone())
+        .map_err(|_| Error::Selection("documented gateway response must parse"))?;
+    assert_eq!(r.usage.cost, Some(0.0000126));
+    let mut extra = base.clone();
+    extra["meta"] = serde_json::json!({"usd_spent": 1});
+    assert!(serde_json::from_value::<Response>(extra).is_err());
+    let mut extra = base;
+    extra["answers"]["pick"]["note"] = serde_json::json!("x");
+    assert!(serde_json::from_value::<Response>(extra).is_err());
     Ok(())
 }
