@@ -23,3 +23,5 @@ examples/postgres/work*/
 .playwright-mcp/
 .impeccable/review/
 .fastembed_cache/
+media/datamuta-demo.gif
+media/datamuta-demo-960.gif
