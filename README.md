@@ -12,6 +12,14 @@
 > Use disposable or fully backed-up databases, and read [limits](docs/book/limits.md)
 > and the [security policy](SECURITY.md) first.
 
+<p align="center">
+  <a href="https://copyleftdev.github.io/datamuta/">
+    <img src="media/datamuta-demo-640.gif" width="640" alt="Animated walkthrough of the Datamuta site: data flows from a PostgreSQL source through the Datamuta stack to four targets and PostgreSQL reports 3 rows and 12 fields verified; the stack then separates into capture, map, seal, approve, publish and verify; the page ends on the field mapping and the Jev mapping-suggestion section.">
+  </a>
+  <br>
+  <sub>Walkthrough of the <a href="https://copyleftdev.github.io/datamuta/">project site</a> (synthetic data). Also as <a href="media/datamuta-demo.mp4">MP4</a>.</sub>
+</p>
+
 Datamuta is an **experimental Rust database migration runtime**. It captures a
 typed snapshot, validates an explicit transformation, seals data into bounded
 disk partitions, publishes an exactly approved plan, resumes from native commit
