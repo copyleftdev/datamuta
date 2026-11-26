@@ -444,6 +444,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tokio-postgres",
+ "webpki-roots",
 ]
 
 [[package]]

@@ -57,7 +57,7 @@
       "runtimePlatform": "Linux, macOS (Unix)",
       "version": "0.1.0",
       "license": ["https://spdx.org/licenses/MIT.html", "https://spdx.org/licenses/Apache-2.0.html"],
-      "keywords": ["database migration", "data migration", "PostgreSQL", "Rust", "ETL", "data verification", "Merkle proof"],
+      "keywords": ["database migration", "data migration", "PostgreSQL", "Rust", "ETL", "data verification", "Merkle proof", "Jev", "TypeSafe AI", "schema mapping"],
       "image": "https://copyleftdev.github.io/datamuta/og.png",
       "author": { "@type": "Person", "name": "copyleftdev", "url": "https://github.com/copyleftdev" },
       "isPartOf": { "@id": "https://copyleftdev.github.io/datamuta/#website" }
@@ -95,6 +95,7 @@
   <nav aria-label="Sections">
     <a href="#pipeline">Pipeline</a>
     <a href="#example">Example</a>
+    <a href="#jev">Jev</a>
     <a href="#engines">Engines</a>
     <a href="#limits">Limits</a>
     <a class="gh" href="https://github.com/copyleftdev/datamuta">GitHub</a>
@@ -233,7 +234,40 @@ datamuta-stream verify --plan plan.json --spool snapshot --out verification.json
     </div>
   </section>
 
-  <section class="sec" id="engines">
+  <section class="sec" id="jev">
+    <div class="wrap two">
+      <div class="copy">
+        <h2>Two valid mappings? Ask Jev, then decide.</h2>
+        <p>When the types allow more than one mapping, for example two <code class="i">bigint</code> amounts, <code class="i">suggest-mapping</code> lists every valid option and asks <a class="link-i" href="https://docs.typesafe.ai/">Jev</a>, TypeSafe's decision model, to pick one from the field meanings you write.</p>
+        <p>Jev can only choose from that closed list or answer <code class="i">review</code>. A pick is accepted only at probability ≥&nbsp;0.90 with a lead of ≥&nbsp;0.20, and the result is still a draft: the plan hash approval is unchanged.</p>
+        <a class="link" href="https://github.com/copyleftdev/datamuta/blob/main/docs/book/operations.md#suggesting-a-mapping-optional">How to use suggest-mapping</a>
+      </div>
+      <div>
+        <figure class="term">
+          <figcaption><span>suggest-mapping ask</span><button type="button" class="copy-btn" data-copy="ask">Copy</button></figcaption>
+<pre id="ask"><span class="c"># key stays in the environment; one call, no retries</span>
+export DATAMUTA_JEV_API_KEY=...
+datamuta-stream suggest-mapping ask \
+  --source-endpoint src.json --source-table billing \
+  --target-endpoint tgt.json --target-table invoices \
+  --evidence evidence.json \
+  --request-out request.json --response-out response.json \
+  --mapping-out mapping.json --provenance-out mapping.provenance.json</pre>
+        </figure>
+        <table class="gate">
+          <caption>Live runs against jev-1.14.0, synthetic schema</caption>
+          <thead><tr><th scope="col">Field meanings</th><th scope="col">Jev's pick</th><th scope="col">Outcome</th></tr></thead>
+          <tbody class="reveal">
+            <tr><td>Clear</td><td>correct · p 1.00</td><td class="ok">accepted</td></tr>
+            <tr><td>Vague (“an amount”)</td><td>correct · p 0.77</td><td class="rv">sent to review</td></tr>
+            <tr><td>Injected instruction</td><td>correct · p 0.99</td><td class="ok">accepted, injection ignored</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec tint" id="engines">
     <div class="wrap">
       <div class="copy narrow">
         <h2>Where it runs today.</h2>
@@ -251,7 +285,7 @@ datamuta-stream verify --plan plan.json --spool snapshot --out verification.json
     </div>
   </section>
 
-  <section class="sec tint" id="limits">
+  <section class="sec" id="limits">
     <div class="wrap two">
       <div class="copy">
         <h2>Bounds you can read before you run.</h2>

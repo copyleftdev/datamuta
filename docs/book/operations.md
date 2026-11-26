@@ -151,8 +151,22 @@ datamuta-stream suggest-mapping admit \
   --mapping-out mapping.json --provenance-out mapping.provenance.json
 ```
 
-If only one mapping is valid, `prepare` writes it to `--mapping-out` and no request
-is needed. `admit` refuses a request whose schemas or evidence have changed, a
+To let Datamuta make the call, put your TypeSafe key in `DATAMUTA_JEV_API_KEY` and
+use `ask`, which prepares, posts once to `https://api.typesafe.ai/v1/systemone`
+(override with `--endpoint`; HTTPS only), saves the request and reply, and admits:
+
+```sh
+export DATAMUTA_JEV_API_KEY=...   # never stored by Datamuta
+datamuta-stream suggest-mapping ask \
+  --source-endpoint src.json --source-table billing \
+  --target-endpoint tgt.json --target-table invoices \
+  --evidence evidence.json --request-out request.json --response-out response.json \
+  --mapping-out mapping.json --provenance-out mapping.provenance.json
+```
+
+`ask` never retries; a failed or refused call is reported and a new attempt is your
+decision. If only one mapping is valid, `prepare` and `ask` write it to `--mapping-out` and no
+request is sent. `admit` refuses a request whose schemas or evidence have changed, a
 response from another model, malformed or oversized responses, and existing output
 paths. A low-confidence or abstaining reply exits with status 3, writes no mapping
 and prints the candidates. An accepted mapping is a draft: review it, then continue

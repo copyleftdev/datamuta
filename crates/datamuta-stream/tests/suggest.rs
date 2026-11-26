@@ -219,3 +219,94 @@ fn outputs_are_never_overwritten() -> Result<()> {
     std::fs::remove_dir_all(&dir)?;
     Ok(())
 }
+
+/// Serve one canned HTTP response on loopback and return the endpoint URL.
+async fn one_shot(status: &str, body: Vec<u8>) -> Result<String> {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
+    let addr = listener.local_addr()?;
+    let head = format!(
+        "HTTP/1.1 {status}\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n",
+        body.len()
+    );
+    tokio::spawn(async move {
+        if let Ok((mut sock, _)) = listener.accept().await {
+            let mut buf = vec![0u8; 65536];
+            let mut seen = Vec::new();
+            // read headers and the declared body before replying
+            while let Ok(n) = sock.read(&mut buf).await {
+                if n == 0 {
+                    break;
+                }
+                seen.extend_from_slice(&buf[..n]);
+                let text = String::from_utf8_lossy(&seen);
+                if let Some(end) = text.find("\r\n\r\n") {
+                    let len = text[..end]
+                        .lines()
+                        .find_map(|l| {
+                            l.to_ascii_lowercase()
+                                .strip_prefix("content-length:")
+                                .map(|v| v.trim().parse::<usize>().unwrap_or(0))
+                        })
+                        .unwrap_or(0);
+                    if seen.len() >= end + 4 + len {
+                        break;
+                    }
+                }
+            }
+            let _ = sock.write_all(head.as_bytes()).await;
+            let _ = sock.write_all(&body).await;
+            let _ = sock.shutdown().await;
+        }
+    });
+    Ok(format!("http://{addr}/v1/systemone"))
+}
+
+#[test]
+fn endpoints_must_be_https_or_loopback() {
+    assert!(suggest::check_endpoint(suggest::DEFAULT_ENDPOINT).is_ok());
+    assert!(suggest::check_endpoint("http://127.0.0.1:9/v1/systemone").is_ok());
+    for bad in [
+        "http://api.typesafe.ai/v1/systemone",
+        "https://user:pw@api.typesafe.ai/v1/systemone",
+        "ftp://127.0.0.1/x",
+        "not a url",
+    ] {
+        assert!(suggest::check_endpoint(bad).is_err(), "{bad}");
+    }
+}
+
+#[tokio::test]
+async fn ask_returns_the_reply_for_admission() -> Result<()> {
+    let (s, t) = ambiguous();
+    let request = prepared()?;
+    let url = one_shot("200 OK", response("option_2", 0.02, 0.96, 0.02)).await?;
+    let reply = suggest::ask(&url, "test-key", &request).await?;
+    let admitted = suggest::admit(
+        &s,
+        &t,
+        &evidence("Grand total in US cents"),
+        &request,
+        &reply,
+    )?;
+    assert!(matches!(admitted, Admitted::Accepted { .. }));
+    Ok(())
+}
+
+#[tokio::test]
+async fn provider_errors_and_oversized_replies_are_refused() -> Result<()> {
+    let request = prepared()?;
+    let url = one_shot(
+        "400 Bad Request",
+        br#"{"detail":{"error_type":"api_usage_error","message":"Unknown model"}}"#.to_vec(),
+    )
+    .await?;
+    let e = suggest::ask(&url, "k", &request)
+        .await
+        .err()
+        .map(|e| e.to_string());
+    assert!(e.is_some_and(|m| m.contains("HTTP 400") && m.contains("Unknown model")));
+    let url = one_shot("200 OK", vec![b' '; suggest::MAX_RESPONSE_BYTES + 10]).await?;
+    assert!(suggest::ask(&url, "k", &request).await.is_err());
+    Ok(())
+}

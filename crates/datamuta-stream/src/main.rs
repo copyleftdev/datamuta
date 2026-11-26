@@ -118,6 +118,21 @@ enum Suggest {
         #[arg(long)]
         mapping_out: PathBuf,
     },
+    /// Prepare, send to JEV once, save the reply and admit it (key in DATAMUTA_JEV_API_KEY).
+    Ask {
+        #[command(flatten)]
+        relations: Relations,
+        #[arg(long, default_value = stream::suggest::DEFAULT_ENDPOINT)]
+        endpoint: String,
+        #[arg(long)]
+        request_out: PathBuf,
+        #[arg(long)]
+        response_out: PathBuf,
+        #[arg(long)]
+        mapping_out: PathBuf,
+        #[arg(long)]
+        provenance_out: PathBuf,
+    },
     /// Admit a saved JEV response into a draft mapping, or require review (exit 3).
     Admit {
         #[command(flatten)]
@@ -184,6 +199,23 @@ async fn execute(command: Command) -> Result<serde_json::Value> {
                     &r.evidence,
                     &request_out,
                     &mapping_out,
+                )
+                .await?
+            }
+            Suggest::Ask {
+                relations: r,
+                endpoint,
+                request_out,
+                response_out,
+                mapping_out,
+                provenance_out,
+            } => {
+                operator::suggest_ask(
+                    (&r.source_endpoint, &r.target_endpoint),
+                    (&r.source_table, &r.target_table),
+                    &r.evidence,
+                    &endpoint,
+                    [&request_out, &response_out, &mapping_out, &provenance_out],
                 )
                 .await?
             }

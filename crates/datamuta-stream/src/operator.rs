@@ -122,6 +122,60 @@ pub async fn suggest_admit(
     out["authorization"] = json!("not granted");
     Ok(out)
 }
+/// One-step suggestion: prepare, post once to JEV, save the reply, then admit it.
+/// The reply is saved before admission so a refusal can be audited.
+pub async fn suggest_ask(
+    endpoints: (&Path, &Path),
+    tables: (&str, &str),
+    evidence: &Path,
+    endpoint: &str,
+    outputs: [&Path; 4],
+) -> Result<Value> {
+    let [request_out, response_out, mapping_out, provenance_out] = outputs;
+    for p in outputs {
+        check(
+            p.symlink_metadata().is_err(),
+            "suggestion output already exists",
+        )?;
+    }
+    suggest::check_endpoint(endpoint)?;
+    let (_, _, source, target) =
+        describe_pair(endpoints.0, endpoints.1, tables.0, tables.1).await?;
+    let ev: Evidence = stream::load(evidence)?;
+    let payload = match suggest::prepare(&source, &target, &ev)? {
+        suggest::Prepared::UniqueCandidate { mapping } => {
+            stream::save(mapping_out, &mapping)?;
+            return Ok(
+                json!({"status":"unique_candidate","mapping":mapping,"mapping_file":mapping_out,
+                "note":"only structural option; JEV was not called; review field meanings before configure",
+                "authorization":"not granted"}),
+            );
+        }
+        suggest::Prepared::RequestPrepared { payload, .. } => payload,
+    };
+    let key = suggest::key_from_env()?;
+    suggest::save_bytes(request_out, &payload)?;
+    let response = suggest::ask(endpoint, &key, &payload).await?;
+    suggest::save_bytes(response_out, &response)?;
+    let admitted = suggest::admit(&source, &target, &ev, &payload, &response)?;
+    let mut out = serde_json::to_value(&admitted)?;
+    if let suggest::Admitted::Accepted {
+        mapping,
+        provenance,
+        ..
+    } = &admitted
+    {
+        stream::save(mapping_out, mapping)?;
+        stream::save(provenance_out, provenance)?;
+        out["mapping_file"] = json!(mapping_out);
+        out["provenance_file"] = json!(provenance_out);
+        out["note"] = json!("draft only; run configure, inspect, then approve the exact plan hash");
+    }
+    out["request_file"] = json!(request_out);
+    out["response_file"] = json!(response_out);
+    out["authorization"] = json!("not granted");
+    Ok(out)
+}
 pub fn inspect(plan: &Plan, path: &Path) -> Result<Value> {
     plan.validate()?;
     let _reader = spool::Reader::open(path, &plan.snapshot)?;

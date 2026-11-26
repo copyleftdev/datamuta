@@ -266,3 +266,14 @@ h1 { font-size: clamp(38px, 4.6vw, 68px); line-height: 1.02; letter-spacing: -0.
 }
 @media (max-width: 900px) { .lbl.slab .t small { display: none; } }
 @media (max-width: 900px) { .lbl .t small { white-space: normal; max-width: 118px; line-height: 1.35; } }
+
+/* ---------- jev gate ---------- */
+.link-i { color: var(--accent); text-underline-offset: .22em; }
+.gate { width: 100%; border-collapse: collapse; margin-top: 28px; font-size: 15px; }
+.gate caption { text-align: left; font: 500 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); padding-bottom: 12px; }
+.gate th { text-align: left; font: 500 12px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); padding: 10px 12px 10px 0; border-bottom: 1px solid var(--ink); }
+.gate td { padding: 13px 12px 13px 0; border-bottom: 1px solid var(--hair); color: var(--ink-2); }
+.gate td:nth-child(2) { font: 400 13.5px/1.4 var(--mono); font-variant-numeric: tabular-nums; }
+.gate .ok { color: var(--ok); font-weight: 500; }
+.gate .rv { color: #8A4F00; font-weight: 500; }
+.two > *, .rows > * { min-width: 0; }

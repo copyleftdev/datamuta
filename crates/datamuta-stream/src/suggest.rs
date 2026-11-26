@@ -1,10 +1,15 @@
 //! Mapping suggestion through a saved JEV Choice exchange.
 //!
+//! `ask` is the only network path: it posts the exact prepared request bytes to
+//! a JEV endpoint once, without retries, and returns the bounded reply bytes for
+//! `admit`. Nothing a provider says is trusted until `admit` has rebuilt the
+//! request and applied the frozen policy.
+//!
 //! `prepare` enumerates the structurally valid mappings between two discovered
 //! schemas and, when more than one exists, writes the exact JEV request bytes.
 //! `admit` rebuilds that request from the same live schemas and evidence,
 //! refuses it if anything changed, and runs the frozen admission policy on a
-//! saved response. Datamuta never contacts the provider here.
+//! saved response.
 //!
 //! A suggested mapping grants no authority. It is an input to `configure`, and
 //! the resulting plan still needs inspection and exact-hash approval.
@@ -179,4 +184,88 @@ pub fn save_bytes(path: &Path, bytes: &[u8]) -> Result<()> {
     f.write_all(bytes)?;
     f.sync_all()?;
     Ok(())
+}
+
+/// TypeSafe's direct JEV endpoint.
+pub const DEFAULT_ENDPOINT: &str = "https://api.typesafe.ai/v1/systemone";
+/// Environment variable holding the provider key; never logged or persisted.
+pub const KEY_ENV: &str = "DATAMUTA_JEV_API_KEY";
+
+/// HTTPS anywhere, or plain HTTP to loopback only (for local test doubles).
+pub fn check_endpoint(endpoint: &str) -> Result<reqwest::Url> {
+    let url = reqwest::Url::parse(endpoint).map_err(err)?;
+    let loopback = matches!(url.host_str(), Some("127.0.0.1" | "localhost" | "[::1]"));
+    require(
+        url.scheme() == "https" || (url.scheme() == "http" && loopback),
+        "JEV endpoint must use HTTPS (plain HTTP only to loopback)",
+    )?;
+    require(
+        url.username().is_empty() && url.password().is_none() && url.fragment().is_none(),
+        "JEV endpoint must not embed credentials or fragments",
+    )?;
+    Ok(url)
+}
+
+/// Read the provider key from the environment and bound it.
+pub fn key_from_env() -> Result<String> {
+    let key = std::env::var(KEY_ENV).map_err(|_| err(format!("{KEY_ENV} is not set")))?;
+    require(
+        !key.is_empty() && key.len() <= 4096 && key.bytes().all(|b| b.is_ascii_graphic()),
+        "JEV API key is empty, too long or malformed",
+    )?;
+    Ok(key)
+}
+
+/// Post the exact request bytes once and return the bounded response body.
+/// No retry: a second attempt is a new request for the operator to decide on.
+pub async fn ask(endpoint: &str, key: &str, payload: &[u8]) -> Result<Vec<u8>> {
+    let url = check_endpoint(endpoint)?;
+    require(payload.len() <= MAX_REQUEST_BYTES, "provider request bytes")?;
+    let tls = rustls::ClientConfig::builder_with_provider(std::sync::Arc::new(
+        rustls::crypto::ring::default_provider(),
+    ))
+    .with_safe_default_protocol_versions()
+    .map_err(err)?
+    .with_root_certificates(rustls::RootCertStore {
+        roots: webpki_roots::TLS_SERVER_ROOTS.to_vec(),
+    })
+    .with_no_client_auth();
+    let client = reqwest::Client::builder()
+        .tls_backend_preconfigured(tls)
+        .no_proxy()
+        .redirect(reqwest::redirect::Policy::none())
+        .retry(reqwest::retry::never())
+        .connect_timeout(std::time::Duration::from_secs(10))
+        .timeout(std::time::Duration::from_secs(60))
+        .build()
+        .map_err(err)?;
+    let mut response = client
+        .post(url)
+        .bearer_auth(key)
+        .header(reqwest::header::CONTENT_TYPE, "application/json")
+        .body(payload.to_vec())
+        .send()
+        .await
+        .map_err(|e| err(format!("JEV request failed: {}", e.without_url())))?;
+    let status = response.status();
+    let mut body = Vec::new();
+    while let Some(chunk) = response.chunk().await.map_err(err)? {
+        require(
+            body.len() + chunk.len() <= MAX_RESPONSE_BYTES,
+            "provider response bytes",
+        )?;
+        body.extend_from_slice(&chunk);
+    }
+    if !status.is_success() {
+        let detail: String = String::from_utf8_lossy(&body)
+            .chars()
+            .filter(|c| !c.is_control())
+            .take(300)
+            .collect();
+        return Err(err(format!(
+            "JEV returned HTTP {}: {detail}",
+            status.as_u16()
+        )));
+    }
+    Ok(body)
 }
